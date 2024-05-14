@@ -17,5 +17,5 @@ func getLogger(filename string) *log.Logger {
         panic("Error with the log file")
     }
 
-    return log.New(logfile, "[START] ", log.Ldate|log.Ltime|log.Lshortfile)
+    return log.New(logfile, "[START] ", log.Ldate|log.Ltime|log.Llongfile)
 }
