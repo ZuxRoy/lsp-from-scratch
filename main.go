@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"encoding/json"
 	"log"
+	"lsp-from-scratch/analysis"
 	"lsp-from-scratch/lsp"
 	"lsp-from-scratch/rpc"
 	"os"
@@ -15,6 +16,8 @@ func main () {
 
     scanner := bufio.NewScanner(os.Stdin)
     scanner.Split(rpc.Split)
+    
+    state := analysis.NewState()
 
     for scanner.Scan() {
         mssg := scanner.Bytes()
@@ -23,11 +26,11 @@ func main () {
             logger.Printf("Error: %s", err)
             continue
         }
-        handleMessage(logger, method, content)
+        handleMessage(logger, state, method, content)
     }
 }
 
-func handleMessage(logger *log.Logger, method string, content []byte) {
+func handleMessage(logger *log.Logger, state analysis.State, method string, content []byte) {
     logger.Printf("Received method: %s", method)
 
     switch method {
@@ -50,11 +53,21 @@ func handleMessage(logger *log.Logger, method string, content []byte) {
     case "textDocument/didOpen":
         var request lsp.DidOpenTextDocumentNotification
         if err := json.Unmarshal(content, &request); err != nil {
-            logger.Printf("Error: Unable to parse: %s", err)
+            logger.Printf("Error: textDocument/didOpen: %s", err)
+            return
         }
-        logger.Printf("Opened: %s\n\n%s",
-            request.Params.TextDocument.URI,
-            request.Params.TextDocument.Text)
+        logger.Printf("Opened: %s", request.Params.TextDocument.URI)
+        state.OpenDocument(request.Params.TextDocument.URI, request.Params.TextDocument.Text)
+    case "textDocument/didChange":
+        var request lsp.TextDocumentDidChangeNotification
+        if err := json.Unmarshal(content, &request); err != nil {
+            logger.Printf("Error: textDocument/didChange: %s", err)
+            return
+        }
+        logger.Printf("Changed: %s", request.Params.TextDocument.URI)
+        for _, change := range request.Params.ContentChanges {
+            state.UpdateDocument(request.Params.TextDocument.URI, change.Text)
+        }
     }
 }
 
